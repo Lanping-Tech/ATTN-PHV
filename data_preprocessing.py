@@ -1,5 +1,6 @@
 import os
 import pandas as pd
+import numpy as np
 
 from utils import *
 
@@ -83,16 +84,45 @@ def data_augmentation(plant_dict, pathogen_dict, relation_dict):
                 relation_dict_aug[relation_name_aug] = relation_aug
     return relation_dict_aug
 
-def export_data(relation_dict_aug):
+def export_data(relation_dict_aug, vec_dict):
     with open('data/data_aug.txt', 'w') as f:
         for relation_name, relation in relation_dict_aug.items():
+            seq1_name, seq2_name = relation_name.split('--')
+            seq1_name = seq1_name.split('_')[0]
+            seq2_name = seq2_name.split('_')[0]
+            vec1 = vec_dict[seq1_name] if seq1_name in vec_dict else np.zeros(420).tolist()
+            vec2 = vec_dict[seq2_name] if seq2_name in vec_dict else np.zeros(420).tolist()
             seq1, seq2, relation = relation
             seq1 = [str(i) for i in seq1]
             seq2 = [str(i) for i in seq2]
+            vec1 = [str(i) for i in vec1]
+            vec2 = [str(i) for i in vec2]
             seq1 = ','.join(seq1)
             seq2 = ','.join(seq2)
-            f.write(seq1 + '\t' + seq2 + '\t' + str(relation) + '\n')
-            f.write('{}\t{}\t{}\n'.format(seq1, seq2, relation))
+            vec1 = ','.join(vec1)
+            vec2 = ','.join(vec2)
+            f.write('{}\t{}\t{}\t{}\t{}\n'.format(seq1, seq2, vec1, vec2, relation))
+
+def read_vector_from_excel(file_path):
+    result = {}
+    data = pd.read_excel(file_path)
+    if not np.all(pd.notnull(data)):
+        data.fillna(0.0, inplace=True)
+    
+    for indexs in data.index:
+        name = data.loc[indexs][0]
+        vec = data.loc[indexs][1:]
+        result[name] = vec
+    return result
+
+def read_vector(file_folder):
+    vec_dict = {}
+    for file_name in os.listdir(file_folder):
+        file_path = os.path.join(file_folder, file_name)
+        print('读取Vec文件：', file_name)
+        vectors = read_vector_from_excel(file_path)
+        vec_dict.update(vectors)
+    return vec_dict
 
 if __name__ == '__main__':
     import collections
@@ -101,8 +131,10 @@ if __name__ == '__main__':
     print('统计原始数据中的样本数量：', collections.Counter(list(relation_dict.values())))
     relation_dict_aug = data_augmentation(plant_dict, pathogen_dict, relation_dict)
     print('统计增强数据中的样本数量：', collections.Counter([item[2] for item in relation_dict_aug.values()]))
-    export_data(relation_dict_aug)
+    vec_dict = read_vector('AC-理化性质')
+    export_data(relation_dict_aug, vec_dict)
     print('数据增广完成！！！')
+
 
 
 
